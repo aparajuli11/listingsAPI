@@ -1,37 +1,53 @@
-// modules/listingsDB.js
-const mongoose     = require('mongoose');
-const Listing      = require('./listingSchema');  // now returns the Model
+const mongoose = require("mongoose");
+const Listing      = require("./listingSchema");
 
-class ListingsDB {
-  async initialize(connectionString) {
-    await mongoose.connect(connectionString);
+
+module.exports = class ListingsDB {
+   // Initialize Mongoose connection
+ async initialize(connectionString) {
+   await mongoose.connect(connectionString);
+}
+
+  // Pass the connection string to `initialize()`
+  initialize(connectionString) {
+    return new Promise((resolve, reject) => {
+      const db = mongoose.createConnection(connectionString);
+
+      db.once('error', (err) => {
+        reject(err);
+      });
+      db.once('open', () => {
+        this.Listing = db.model("listing", listingSchema);
+        resolve();
+      });
+    });
   }
 
   async addNewListing(data) {
-    const listing = new Listing(data);
-    const doc = await listing.save();
-    return doc._id;
+    const newListing = new this.Listing(data);
+    await newListing.save();
+    return newListing;
   }
 
-  async getAllListings(page = 1, perPage = 10, name) {
-    const filter = name ? { name: new RegExp(name, 'i') } : {};
-    return Listing.find(filter)
-      .skip((page - 1) * perPage)
-      .limit(perPage)
-      .exec();
+  getAllListings(page, perPage, name) {
+    let findBy = name ? { "name": { "$regex": name, "$options": "i" } } : {}
+
+    if (+page && +perPage) {
+      return this.Listing.find(findBy, {reviews: 0}).sort({ number_of_reviews: -1 }).skip((page - 1) * +perPage).limit(+perPage).exec();
+    }
+
+    return Promise.reject(new Error('page and perPage query parameters must be valid numbers'));
   }
 
-  async getListingById(id) {
-    return Listing.findById(id).exec();
+  getListingById(id) {
+    return this.Listing.findOne({ _id: id }).exec();
   }
 
-  async updateListingById(data, id) {
-    await Listing.updateOne({ _id: id }, { $set: data }).exec();
+  updateListingById(data, id) {
+    return this.Listing.updateOne({ _id: id }, { $set: data }).exec();
   }
 
-  async deleteListingById(id) {
-    await Listing.deleteOne({ _id: id }).exec();
+  deleteListingById(id) {
+    return this.Listing.deleteOne({ _id: id }).exec();
   }
 }
-
-module.exports = ListingsDB;
