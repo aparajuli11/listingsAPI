@@ -104,4 +104,4 @@ const listingSchema = new mongoose.Schema({
   reviews: [reviewSchema],
 },{ collection: 'listingsAndReviews' }); // added here to preserve capital letters in collection name
 
-module.exports = listingSchema;
+module.exports = mongoose.model('Listing', listingSchema);
